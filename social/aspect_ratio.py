@@ -57,13 +57,13 @@ def build_filter_graph(config: TransformConfig) -> str:
         return f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"
 
     elif config.mode == TransformMode.BLURRED_BACKGROUND:
-        # 1. Fond : mise à l'échelle pour couvrir, crop aux dimensions cibles, application du flou
-        # 2. Premier plan : mise à l'échelle pour s'inscrire entièrement dans le cadre
-        # 3. Superposition centrée
-        blur = config.blur_strength
+        # Optimisation haute performance : sous-échantillonnage du fond pour flou ultra-rapide
+        w_bg = max(16, (w // 4) & ~1)
+        h_bg = max(16, (h // 4) & ~1)
+        blur = max(5, config.blur_strength // 2)
         return (
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},"
-            f"boxblur={blur}:5[bg];"
+            f"[0:v]scale={w_bg}:{h_bg}:force_original_aspect_ratio=increase,crop={w_bg}:{h_bg},"
+            f"boxblur={blur}:1,scale={w}:{h}[bg];"
             f"[0:v]scale={w}:{h}:force_original_aspect_ratio=decrease[fg];"
             f"[bg][fg]overlay=(W-w)/2:(H-h)/2"
         )

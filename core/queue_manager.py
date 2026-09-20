@@ -129,8 +129,10 @@ class QueueManager:
             self._notify_progress(idx, job)
 
             try:
+                has_extra = bool(job.social_transform or getattr(job, "transcribe", False) or getattr(job, "burn_subtitles", False))
+
                 def _seg_progress(seg_idx: int, seg_total: int, seg_pct: float) -> None:
-                    job.progress_percent = seg_pct
+                    job.progress_percent = (seg_pct * 0.2) if has_extra else seg_pct
                     self._notify_progress(idx, job)
 
                 # Exécution du découpage via VideoCutter
@@ -143,22 +145,27 @@ class QueueManager:
                 )
                 
                 job.result = result
-                job.progress_percent = 100.0
+                job.progress_percent = 20.0 if has_extra else 100.0
+                self._notify_progress(idx, job)
                 
                 if result.success:
                     # 1. Transformation Format Réseaux Sociaux (optionnel)
                     transformed_files = []
+                    valid_segs = [s for s in result.segments if s.status == "completed"]
+                    total_segs = max(1, len(valid_segs))
+
                     if job.social_transform:
                         try:
                             from core.video_transformer import VideoTransformer
                             from social.aspect_ratio import TransformConfig
                             cfg = TransformConfig(**job.social_transform)
                             transformer = VideoTransformer(self.cutter.ffmpeg_manager, self.cutter.analyzer)
-                            for seg in result.segments:
-                                if seg.status == "completed":
-                                    t_res = transformer.transform(seg.output_path, result.output_dir, config=cfg)
-                                    if t_res.success:
-                                        transformed_files.append((seg, t_res.output_path))
+                            for s_i, seg in enumerate(valid_segs, start=1):
+                                t_res = transformer.transform(seg.output_path, result.output_dir, config=cfg)
+                                if t_res.success:
+                                    transformed_files.append((seg, t_res.output_path))
+                                job.progress_percent = 20.0 + (35.0 * (s_i / total_segs))
+                                self._notify_progress(idx, job)
                         except Exception as e_trans:
                             pass
 
@@ -170,12 +177,14 @@ class QueueManager:
                             trans_cfg = TranscriptionConfig(model_name=model_name)
                             trans_engine = TranscriptionEngine(trans_cfg)
 
-                            # Cibles : segments transformés en priorité, sinon segments bruts
-                            targets = transformed_files if transformed_files else [(seg, seg.output_path) for seg in result.segments if seg.status == "completed"]
+                            targets = transformed_files if transformed_files else [(seg, seg.output_path) for seg in valid_segs]
+                            n_targets = max(1, len(targets))
 
-                            for seg, video_target in targets:
+                            for t_i, (seg, video_target) in enumerate(targets, start=1):
                                 video_p = Path(video_target)
                                 trans_res = trans_engine.transcribe(str(video_p), output_dir=str(video_p.parent))
+                                job.progress_percent = 55.0 + (25.0 * (t_i / n_targets))
+                                self._notify_progress(idx, job)
 
                                 # 3. Incrustation définitive (Burn-In) si demandée
                                 if getattr(job, "burn_subtitles", False) and trans_res.success and trans_res.srt_file_path:
@@ -205,8 +214,14 @@ class QueueManager:
                                         renderer.burn(burn_job)
                                     except Exception as e_burn:
                                         pass
+
+                                job.progress_percent = 80.0 + (20.0 * (t_i / n_targets))
+                                self._notify_progress(idx, job)
+
                         except Exception as e_transcribe:
                             pass
+
+                    job.progress_percent = 100.0
 
                     job.status = JobStatus.COMPLETED
                     results.append(result)
