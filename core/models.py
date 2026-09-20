@@ -4,13 +4,21 @@ Pydantic data structures for video metadata, segment cuts, and processing result
 """
 
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 
 
 class CutMode(str, Enum):
     FAST = "fast_stream_copy"
     PRECISE = "precise_reencode"
+
+
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class VideoMetadata(BaseModel):
@@ -52,3 +60,32 @@ class CutResult(BaseModel):
     segments: List[SegmentCutInfo]
     success: bool
     error_message: Optional[str] = None
+    total_time_seconds: float = 0.0
+
+
+class VideoJob(BaseModel):
+    """Représente une tâche de traitement pour une vidéo dans la file d'attente."""
+    job_id: str
+    source_path: str
+    output_base_dir: str
+    segment_duration: Union[int, float, str]
+    cut_mode: CutMode = CutMode.FAST
+    status: JobStatus = JobStatus.PENDING
+    progress_percent: float = 0.0
+    error_message: Optional[str] = None
+    result: Optional[CutResult] = None
+
+
+class QueueProgress(BaseModel):
+    """Instantané de progression globale de la file d'attente pour l'observateur / UI."""
+    total_jobs: int = 0
+    completed_jobs: int = 0
+    failed_jobs: int = 0
+    cancelled_jobs: int = 0
+    current_job_index: int = 0
+    current_job_filename: str = ""
+    overall_progress_percent: float = 0.0
+    current_job_progress_percent: float = 0.0
+    elapsed_seconds: float = 0.0
+    estimated_remaining_seconds: float = 0.0
+
