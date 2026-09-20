@@ -75,6 +75,10 @@ class VideoJob(BaseModel):
     error_message: Optional[str] = None
     result: Optional[CutResult] = None
     social_transform: Optional[dict] = None
+    transcribe: bool = False
+    whisper_model: str = "base"
+    burn_subtitles: bool = False
+    subtitle_preset: str = "tiktok_high_contrast"
 
 
 class QueueProgress(BaseModel):

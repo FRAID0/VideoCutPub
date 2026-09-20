@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QComboBox, QRadioButton, QButtonGroup,
-    QProgressBar, QFileDialog, QMessageBox, QFrame
+    QProgressBar, QFileDialog, QMessageBox, QFrame, QCheckBox
 )
 
 from app.styles.dark_theme import DARK_THEME_QSS
@@ -108,16 +108,47 @@ class MainWindow(QMainWindow):
         ])
         config_layout.addWidget(self.combo_social, 1, 1, 1, 3)
 
-        # Ligne 2 : Dossier de sortie
-        config_layout.addWidget(QLabel("Dossier de sortie :"), 2, 0)
+        # Ligne 2 : Sous-Titres & Transcription IA
+        config_layout.addWidget(QLabel("Sous-Titres & IA :"), 2, 0)
+        sub_layout = QHBoxLayout()
+        self.chk_transcribe = QCheckBox("Générer .srt (Faster-Whisper)")
+        self.chk_transcribe.setToolTip("Transcrit automatiquement l'audio en texte horodaté.")
+        
+        self.combo_whisper_model = QComboBox()
+        self.combo_whisper_model.addItems(["base", "tiny", "small"])
+        self.combo_whisper_model.setToolTip("Modèle Faster-Whisper (base = bon équilibre vitesse/précision).")
+
+        self.chk_burn = QCheckBox("Incruster dans la vidéo (Burn-in)")
+        self.chk_burn.setToolTip("Incruste les sous-titres stylisés de manière définitive dans la vidéo.")
+
+        self.combo_style = QComboBox()
+        self.combo_style.addItems([
+            "TikTok Impact (Jaune / Safe Zone)",
+            "Shorts / Reels Clean (Blanc)",
+            "Bandeau Sombre Opaque",
+            "Minimaliste"
+        ])
+        self.combo_style.setToolTip("Style visuel des sous-titres incrustés et positionnement dans la safe zone.")
+
+        # Lier la case à cocher incrustation pour cocher automatiquement la transcription
+        self.chk_burn.toggled.connect(lambda checked: self.chk_transcribe.setChecked(True) if checked else None)
+
+        sub_layout.addWidget(self.chk_transcribe)
+        sub_layout.addWidget(self.combo_whisper_model)
+        sub_layout.addWidget(self.chk_burn)
+        sub_layout.addWidget(self.combo_style)
+        config_layout.addLayout(sub_layout, 2, 1, 1, 3)
+
+        # Ligne 3 : Dossier de sortie
+        config_layout.addWidget(QLabel("Dossier de sortie :"), 3, 0)
         self.entry_output_dir = QLineEdit()
         default_out = str((Path.cwd() / "output").resolve())
         self.entry_output_dir.setText(default_out)
-        config_layout.addWidget(self.entry_output_dir, 2, 1, 1, 2)
+        config_layout.addWidget(self.entry_output_dir, 3, 1, 1, 2)
 
         self.btn_browse_out = QPushButton("Parcourir...")
         self.btn_browse_out.clicked.connect(self._on_browse_output_clicked)
-        config_layout.addWidget(self.btn_browse_out, 2, 3)
+        config_layout.addWidget(self.btn_browse_out, 3, 3)
 
         main_layout.addWidget(config_box)
 
@@ -230,12 +261,28 @@ class MainWindow(QMainWindow):
         elif "Carré 1:1" in social_choice:
             social_cfg = {"aspect_ratio": "1:1", "mode": "center_crop", "target_width": 1080, "target_height": 1080}
 
+        style_choice = self.combo_style.currentText()
+        preset_map = {
+            "TikTok Impact (Jaune / Safe Zone)": "tiktok_high_contrast",
+            "Shorts / Reels Clean (Blanc)": "shorts_clean",
+            "Bandeau Sombre Opaque": "boxed_high_contrast",
+            "Minimaliste": "minimal",
+        }
+        subtitle_preset = preset_map.get(style_choice, "tiktok_high_contrast")
+        transcribe_enabled = self.chk_transcribe.isChecked()
+        burn_enabled = self.chk_burn.isChecked()
+        whisper_model = self.combo_whisper_model.currentText()
+
         for job in self.queue_manager.jobs:
             if job.status == JobStatus.PENDING:
                 job.output_base_dir = str(Path(out_dir).resolve())
                 job.segment_duration = dur
                 job.cut_mode = mode
                 job.social_transform = social_cfg
+                job.transcribe = transcribe_enabled
+                job.whisper_model = whisper_model
+                job.burn_subtitles = burn_enabled
+                job.subtitle_preset = subtitle_preset
 
         # UI State : désactiver boutons de configuration pendant le run
         self._set_controls_enabled(False)
@@ -291,7 +338,12 @@ class MainWindow(QMainWindow):
         self.btn_cancel.setEnabled(not enabled)
         self.combo_duration.setEnabled(enabled)
         self.combo_social.setEnabled(enabled)
+        self.chk_transcribe.setEnabled(enabled)
+        self.combo_whisper_model.setEnabled(enabled)
+        self.chk_burn.setEnabled(enabled)
+        self.combo_style.setEnabled(enabled)
         self.radio_fast.setEnabled(enabled)
         self.radio_precise.setEnabled(enabled)
         self.entry_output_dir.setEnabled(enabled)
         self.btn_browse_out.setEnabled(enabled)
+

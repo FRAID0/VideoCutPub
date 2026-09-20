@@ -146,6 +146,8 @@ class QueueManager:
                 job.progress_percent = 100.0
                 
                 if result.success:
+                    # 1. Transformation Format Réseaux Sociaux (optionnel)
+                    transformed_files = []
                     if job.social_transform:
                         try:
                             from core.video_transformer import VideoTransformer
@@ -154,8 +156,56 @@ class QueueManager:
                             transformer = VideoTransformer(self.cutter.ffmpeg_manager, self.cutter.analyzer)
                             for seg in result.segments:
                                 if seg.status == "completed":
-                                    transformer.transform(seg.output_path, result.output_dir, config=cfg)
+                                    t_res = transformer.transform(seg.output_path, result.output_dir, config=cfg)
+                                    if t_res.success:
+                                        transformed_files.append((seg, t_res.output_path))
                         except Exception as e_trans:
+                            pass
+
+                    # 2. Transcription IA & Sous-Titres (optionnel)
+                    if getattr(job, "transcribe", False) or getattr(job, "burn_subtitles", False):
+                        try:
+                            from ai.transcription import TranscriptionEngine, TranscriptionConfig
+                            model_name = getattr(job, "whisper_model", "base")
+                            trans_cfg = TranscriptionConfig(model_name=model_name)
+                            trans_engine = TranscriptionEngine(trans_cfg)
+
+                            # Cibles : segments transformés en priorité, sinon segments bruts
+                            targets = transformed_files if transformed_files else [(seg, seg.output_path) for seg in result.segments if seg.status == "completed"]
+
+                            for seg, video_target in targets:
+                                video_p = Path(video_target)
+                                trans_res = trans_engine.transcribe(str(video_p), output_dir=str(video_p.parent))
+
+                                # 3. Incrustation définitive (Burn-In) si demandée
+                                if getattr(job, "burn_subtitles", False) and trans_res.success and trans_res.srt_file_path:
+                                    try:
+                                        from subtitles.style import get_preset_style, SubtitlePresetName
+                                        from subtitles.ass_generator import ASSGenerator
+                                        from subtitles.renderer import SubtitleRenderer, BurnJob
+
+                                        preset_name = getattr(job, "subtitle_preset", "tiktok_high_contrast")
+                                        meta_target = self.cutter.analyzer.analyze(str(video_p))
+                                        style = get_preset_style(
+                                            preset_name,
+                                            target_width=meta_target.width,
+                                            target_height=meta_target.height
+                                        )
+
+                                        ass_gen = ASSGenerator(style=style, width=meta_target.width, height=meta_target.height)
+                                        ass_file = video_p.parent / f"{video_p.stem}.ass"
+                                        ass_gen.export_to_file(trans_res.segments, str(ass_file))
+
+                                        renderer = SubtitleRenderer(self.cutter.ffmpeg_manager, self.cutter.analyzer)
+                                        burn_job = BurnJob(
+                                            video_path=str(video_p),
+                                            subtitle_path=str(ass_file),
+                                            output_dir=str(video_p.parent / "rendered")
+                                        )
+                                        renderer.burn(burn_job)
+                                    except Exception as e_burn:
+                                        pass
+                        except Exception as e_transcribe:
                             pass
 
                     job.status = JobStatus.COMPLETED
