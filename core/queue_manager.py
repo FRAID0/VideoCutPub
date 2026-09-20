@@ -184,9 +184,20 @@ class QueueManager:
                                 video_p = Path(video_target)
                                 trans_res = trans_engine.transcribe(str(video_p), output_dir=str(video_p.parent))
                                 job.progress_percent = 55.0 + (25.0 * (t_i / n_targets))
-                                self._notify_progress(idx, job)
+                                # 3. Génération des Métadonnées IA (post_content.txt & metadata_ai.json)
+                                if getattr(job, "generate_metadata", True) and trans_res.success and trans_res.segments:
+                                    try:
+                                        from ai.metadata_generator import MetadataGenerator
+                                        meta_gen = MetadataGenerator()
+                                        ai_meta = meta_gen.generate_from_segments(trans_res.segments)
+                                        txt_path = video_p.parent / f"{video_p.stem}_post_content.txt"
+                                        json_path = video_p.parent / f"{video_p.stem}_metadata_ai.json"
+                                        meta_gen.export_post_txt(ai_meta, str(txt_path))
+                                        meta_gen.export_json(ai_meta, str(json_path))
+                                    except Exception as e_meta:
+                                        pass
 
-                                # 3. Incrustation définitive (Burn-In) si demandée
+                                # 4. Incrustation définitive (Burn-In) si demandée
                                 if getattr(job, "burn_subtitles", False) and trans_res.success and trans_res.srt_file_path:
                                     try:
                                         from subtitles.style import get_preset_style, SubtitlePresetName

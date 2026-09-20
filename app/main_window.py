@@ -134,13 +134,16 @@ class MainWindow(QMainWindow):
         ])
         self.combo_style.setToolTip("Style visuel des sous-titres incrustés et positionnement dans la safe zone.")
 
-        # Lier la case à cocher incrustation pour cocher automatiquement la transcription
-        self.chk_burn.toggled.connect(lambda checked: self.chk_transcribe.setChecked(True) if checked else None)
+        self.chk_metadata = QCheckBox("📝 Métadonnées IA (Hooks & Tags)")
+        self.chk_metadata.setChecked(True)
+        self.chk_metadata.setToolTip("Génère automatiquement 3 accroches virales, description SEO et hashtags.")
+        self.chk_metadata.toggled.connect(lambda checked: self.chk_transcribe.setChecked(True) if checked else None)
 
         sub_layout.addWidget(self.chk_transcribe)
         sub_layout.addWidget(self.combo_whisper_model)
         sub_layout.addWidget(self.chk_burn)
         sub_layout.addWidget(self.combo_style)
+        sub_layout.addWidget(self.chk_metadata)
         config_layout.addLayout(sub_layout, 2, 1, 1, 3)
 
         # Ligne 3 : Dossier de sortie
@@ -275,6 +278,7 @@ class MainWindow(QMainWindow):
         subtitle_preset = preset_map.get(style_choice, "tiktok_high_contrast")
         transcribe_enabled = self.chk_transcribe.isChecked()
         burn_enabled = self.chk_burn.isChecked()
+        metadata_enabled = self.chk_metadata.isChecked()
         whisper_model = self.combo_whisper_model.currentText()
 
         for job in self.queue_manager.jobs:
@@ -287,6 +291,7 @@ class MainWindow(QMainWindow):
                 job.whisper_model = whisper_model
                 job.burn_subtitles = burn_enabled
                 job.subtitle_preset = subtitle_preset
+                job.generate_metadata = metadata_enabled
 
         # UI State : désactiver boutons de configuration pendant le run
         self._set_controls_enabled(False)
@@ -365,6 +370,7 @@ class MainWindow(QMainWindow):
         self.combo_whisper_model.setEnabled(enabled)
         self.chk_burn.setEnabled(enabled)
         self.combo_style.setEnabled(enabled)
+        self.chk_metadata.setEnabled(enabled)
         self.radio_fast.setEnabled(enabled)
         self.radio_precise.setEnabled(enabled)
         self.entry_output_dir.setEnabled(enabled)

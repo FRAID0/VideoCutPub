@@ -11,7 +11,7 @@ faster-whisper>=1.0.0
 pydantic>=2.0.0
 
 # Téléchargement Vidéo Multi-Plateformes
-yt-dlp>=2024.0.0
+yt-dlp[default]>=2024.0.0
 
 # Tests Unitaires & Intégration
 pytest>=7.0.0

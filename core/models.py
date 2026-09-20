@@ -79,6 +79,7 @@ class VideoJob(BaseModel):
     whisper_model: str = "base"
     burn_subtitles: bool = False
     subtitle_preset: str = "tiktok_high_contrast"
+    generate_metadata: bool = True
 
 
 class QueueProgress(BaseModel):
