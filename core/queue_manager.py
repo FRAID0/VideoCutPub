@@ -128,12 +128,17 @@ class QueueManager:
             self._notify_progress(idx, job)
 
             try:
+                def _seg_progress(seg_idx: int, seg_total: int, seg_pct: float) -> None:
+                    job.progress_percent = seg_pct
+                    self._notify_progress(idx, job)
+
                 # Exécution du découpage via VideoCutter
                 result = self.cutter.cut_video(
                     source_path=job.source_path,
                     output_base_dir=job.output_base_dir,
                     segment_duration=job.segment_duration,
                     mode=job.cut_mode,
+                    progress_callback=_seg_progress,
                 )
                 
                 job.result = result

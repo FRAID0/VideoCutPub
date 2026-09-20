@@ -8,7 +8,7 @@ import math
 import os
 import time
 from pathlib import Path
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Callable
 
 from ffmpeg.ffmpeg_manager import FFmpegManager, FFmpegExecutionError
 from core.models import CutMode, VideoMetadata, SegmentCutInfo, CutResult
@@ -82,6 +82,7 @@ class VideoCutter:
         output_base_dir: str,
         segment_duration: Union[int, float, str],
         mode: CutMode = CutMode.FAST,
+        progress_callback: Optional[Callable[[int, int, float], None]] = None,
     ) -> CutResult:
         """
         Découpe une vidéo source en segments et les enregistre dans un dossier d'isolation dédié.
@@ -151,6 +152,10 @@ class VideoCutter:
                 )
 
             segments_info.append(seg_info)
+
+            if progress_callback and total_segments > 0:
+                prog_pct = round((idx / total_segments) * 100.0, 1)
+                progress_callback(idx, total_segments, prog_pct)
 
         # 3. Assemblage du résultat global et sauvegarde metadata.json
         metadata_json_path = output_dir / "metadata.json"

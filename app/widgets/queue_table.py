@@ -57,7 +57,7 @@ class QueueTableWidget(QTableWidget):
         """Met à jour le contenu du tableau à partir de la liste des VideoJobs."""
         self.setRowCount(len(jobs))
         for row, job in enumerate(jobs):
-            status_text, color_code = self._get_status_display(job.status)
+            status_text, color_code = self._get_status_display(job)
             
             item_status = QTableWidgetItem(status_text)
             item_status.setTextAlignment(Qt.AlignCenter)
@@ -80,11 +80,12 @@ class QueueTableWidget(QTableWidget):
             self.setItem(row, 4, item_path)
 
     @staticmethod
-    def _get_status_display(status: JobStatus) -> tuple[str, str]:
+    def _get_status_display(job: VideoJob) -> tuple[str, str]:
+        status = job.status
         if status == JobStatus.COMPLETED:
             return "✓ Terminé", "#a6e3a1"
         elif status == JobStatus.RUNNING:
-            return "▶ En cours", "#89b4fa"
+            return f"▶ En cours ({int(job.progress_percent)}%)", "#89b4fa"
         elif status == JobStatus.FAILED:
             return "❌ Échec", "#f38ba8"
         elif status == JobStatus.CANCELLED:

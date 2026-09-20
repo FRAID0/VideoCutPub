@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QGroupBox,
     QPushButton, QLabel, QLineEdit, QComboBox, QRadioButton, QButtonGroup,
     QProgressBar, QFileDialog, QMessageBox, QFrame
 )
@@ -63,22 +63,24 @@ class MainWindow(QMainWindow):
         self.queue_table.files_dropped_signal.connect(self._on_files_dropped)
         main_layout.addWidget(self.queue_table)
 
-        # 3. Panneau de Configuration (Durée, Mode, Destination)
-        config_box = QGroupBox("Configuration du Découpage")
-        config_layout = QHBoxLayout(config_box)
+        self.setMinimumSize(850, 580)
 
-        # Durée
-        config_layout.addWidget(QLabel("Durée par segment :"))
+        # 3. Panneau de Configuration Réactif (Grid Layout)
+        config_box = QGroupBox("Configuration du Découpage")
+        config_layout = QGridLayout(config_box)
+        config_layout.setContentsMargins(12, 12, 12, 12)
+        config_layout.setSpacing(10)
+
+        # Ligne 0 : Durée et Mode
+        config_layout.addWidget(QLabel("Durée par segment :"), 0, 0)
         self.combo_duration = QComboBox()
         self.combo_duration.setEditable(True)
         self.combo_duration.addItems(["10s", "30s", "1m", "2m", "5m", "10m", "00:02:30"])
         self.combo_duration.setCurrentText("2m")
-        config_layout.addWidget(self.combo_duration)
+        config_layout.addWidget(self.combo_duration, 0, 1)
 
-        config_layout.addSpacing(20)
-
-        # Mode (Fast vs Precise)
-        config_layout.addWidget(QLabel("Mode :"))
+        config_layout.addWidget(QLabel("Mode de découpe :"), 0, 2)
+        mode_sub_layout = QHBoxLayout()
         self.radio_fast = QRadioButton("⚡ Rapide (-c copy)")
         self.radio_fast.setToolTip("Découpage ultra-rapide sans re-encodage (aligné sur les keyframes).")
         self.radio_fast.setChecked(True)
@@ -90,21 +92,21 @@ class MainWindow(QMainWindow):
         self.mode_group.addButton(self.radio_fast)
         self.mode_group.addButton(self.radio_precise)
 
-        config_layout.addWidget(self.radio_fast)
-        config_layout.addWidget(self.radio_precise)
+        mode_sub_layout.addWidget(self.radio_fast)
+        mode_sub_layout.addWidget(self.radio_precise)
+        mode_sub_layout.addStretch()
+        config_layout.addLayout(mode_sub_layout, 0, 3)
 
-        config_layout.addSpacing(20)
-
-        # Dossier de sortie
-        config_layout.addWidget(QLabel("Dossier sortie :"))
+        # Ligne 1 : Dossier de sortie
+        config_layout.addWidget(QLabel("Dossier de sortie :"), 1, 0)
         self.entry_output_dir = QLineEdit()
         default_out = str((Path.cwd() / "output").resolve())
         self.entry_output_dir.setText(default_out)
-        config_layout.addWidget(self.entry_output_dir)
+        config_layout.addWidget(self.entry_output_dir, 1, 1, 1, 2)
 
         self.btn_browse_out = QPushButton("Parcourir...")
         self.btn_browse_out.clicked.connect(self._on_browse_output_clicked)
-        config_layout.addWidget(self.btn_browse_out)
+        config_layout.addWidget(self.btn_browse_out, 1, 3)
 
         main_layout.addWidget(config_box)
 
