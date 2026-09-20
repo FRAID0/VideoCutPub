@@ -1,16 +1,23 @@
 """
 VideoCutPub - Main Entry Point
+Launches the PySide6 Desktop Application.
 """
+
 import sys
-import os
+from PySide6.QtWidgets import QApplication
+from app.main_window import MainWindow
+
 
 def main():
-    print("===================================================")
-    print(" VideoCutPub - Video Content Processing & Publishing Studio")
-    print("===================================================")
-    print("Statut : Architecture V1.0 initialisee.")
-    print("Moteur principal : FFmpeg (Stream Copy / Precise).")
-    print("Interface cible : PySide6 (Qt 6).")
+    app = QApplication(sys.argv)
+    app.setApplicationName("VideoCutPub")
+    app.setOrganizationName("FRAID0")
+
+    window = MainWindow()
+    window.show()
+
+    sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()
