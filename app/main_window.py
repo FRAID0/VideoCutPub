@@ -49,11 +49,15 @@ class MainWindow(QMainWindow):
         self.btn_add_dir = QPushButton("📂 Ajouter un Dossier")
         self.btn_add_dir.clicked.connect(self._on_add_dir_clicked)
 
+        self.btn_import_url = QPushButton("🔗 Importer depuis une URL")
+        self.btn_import_url.clicked.connect(self._on_import_url_clicked)
+
         self.btn_clear_queue = QPushButton("🗑️ Vider la File")
         self.btn_clear_queue.clicked.connect(self._on_clear_queue_clicked)
 
         top_bar.addWidget(self.btn_add_files)
         top_bar.addWidget(self.btn_add_dir)
+        top_bar.addWidget(self.btn_import_url)
         top_bar.addStretch()
         top_bar.addWidget(self.btn_clear_queue)
         main_layout.addLayout(top_bar)
@@ -327,12 +331,31 @@ class MainWindow(QMainWindow):
         self.lbl_status.setText(f"Erreur globale : {err_msg}")
         QMessageBox.critical(self, "Erreur Traitement", f"Une erreur imprévue est survenue : {err_msg}")
 
+    def _on_import_url_clicked(self) -> None:
+        from app.widgets.download_dialog import DownloadUrlDialog
+        dlg = DownloadUrlDialog(parent=self)
+        dlg.video_downloaded_signal.connect(self._on_video_downloaded)
+        dlg.exec()
+
+    @Slot(str)
+    def _on_video_downloaded(self, file_path: str) -> None:
+        out_dir = self.entry_output_dir.text()
+        dur = self.combo_duration.currentText()
+        mode = CutMode.FAST if self.radio_fast.isChecked() else CutMode.PRECISE
+        try:
+            self.queue_manager.add_job(file_path, out_dir, dur, mode)
+            self._update_queue_display()
+            self.lbl_status.setText(f"Vidéo importée depuis URL ajoutée : {Path(file_path).name}")
+        except DuplicateJobError:
+            pass
+
     def _update_queue_display(self) -> None:
         self.queue_table.update_jobs(self.queue_manager.jobs)
 
     def _set_controls_enabled(self, enabled: bool) -> None:
         self.btn_add_files.setEnabled(enabled)
         self.btn_add_dir.setEnabled(enabled)
+        self.btn_import_url.setEnabled(enabled)
         self.btn_clear_queue.setEnabled(enabled)
         self.btn_start.setEnabled(enabled)
         self.btn_cancel.setEnabled(not enabled)
@@ -346,4 +369,5 @@ class MainWindow(QMainWindow):
         self.radio_precise.setEnabled(enabled)
         self.entry_output_dir.setEnabled(enabled)
         self.btn_browse_out.setEnabled(enabled)
+
 
