@@ -218,6 +218,7 @@ class MainWindow(QMainWindow):
 
         # UI State : désactiver boutons de configuration pendant le run
         self._set_controls_enabled(False)
+        self._update_queue_display()
 
         # Instanciation et lancement du QThread Worker
         self.worker_thread = QueueWorkerThread(self.queue_manager, self)
@@ -235,7 +236,7 @@ class MainWindow(QMainWindow):
     def _on_worker_progress(self, progress: QueueProgress) -> None:
         self.progress_bar.setValue(int(progress.overall_progress_percent))
         msg = f"Vidéo {progress.current_job_index}/{progress.total_jobs} : {progress.current_job_filename} | " \
-              f"Global : {progress.overall_progress_percent}% | Écoule : {progress.elapsed_seconds}s | Restant est. : {progress.estimated_remaining_seconds}s"
+              f"Global : {progress.overall_progress_percent}% | Écoulé : {progress.elapsed_seconds}s | Restant est. : {progress.estimated_remaining_seconds}s"
         self.lbl_status.setText(msg)
         self._update_queue_display()
 

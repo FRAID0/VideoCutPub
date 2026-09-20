@@ -113,6 +113,7 @@ class QueueManager:
         Capture les erreurs par vidéo et continue automatiquement avec la vidéo suivante.
         """
         self._is_running = True
+        self._start_time = time.time()
         results: List[CutResult] = []
 
         total_jobs = len(self.jobs)
@@ -180,13 +181,15 @@ class QueueManager:
             current_job_prog = running_job.progress_percent
 
         processed_count = completed + failed + cancelled
-        overall_percent = (processed_count / total * 100.0) if total > 0 else 0.0
+        running_fraction = (current_job_prog / 100.0) if running_job else 0.0
+        effective_fraction = ((processed_count + running_fraction) / total) if total > 0 else 0.0
+        overall_percent = effective_fraction * 100.0
 
         elapsed = (time.time() - self._start_time) if self._start_time else 0.0
         eta = 0.0
-        if processed_count > 0 and processed_count < total:
-            avg_per_job = elapsed / processed_count
-            eta = avg_per_job * (total - processed_count)
+        if effective_fraction > 0.01 and effective_fraction < 1.0 and elapsed > 0:
+            total_est_time = elapsed / effective_fraction
+            eta = max(0.0, total_est_time - elapsed)
 
         return QueueProgress(
             total_jobs=total,

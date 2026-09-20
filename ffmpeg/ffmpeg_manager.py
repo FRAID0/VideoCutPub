@@ -94,6 +94,7 @@ class FFmpegManager:
     def run_ffmpeg(self, args: List[str], check: bool = True) -> subprocess.CompletedProcess:
         """Exécute une commande FFmpeg avec les arguments fournis."""
         cmd = [self.ffmpeg_path] + args
+        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         try:
             result = subprocess.run(
                 cmd,
@@ -102,6 +103,7 @@ class FFmpegManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                creationflags=creationflags,
             )
             if check and result.returncode != 0:
                 raise FFmpegExecutionError(cmd, result.returncode, result.stdout, result.stderr)
@@ -112,6 +114,7 @@ class FFmpegManager:
     def run_ffprobe(self, args: List[str], check: bool = True) -> subprocess.CompletedProcess:
         """Exécute une commande FFprobe avec les arguments fournis."""
         cmd = [self.ffprobe_path] + args
+        creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         try:
             result = subprocess.run(
                 cmd,
@@ -120,6 +123,7 @@ class FFmpegManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                creationflags=creationflags,
             )
             if check and result.returncode != 0:
                 raise FFmpegExecutionError(cmd, result.returncode, result.stdout, result.stderr)
