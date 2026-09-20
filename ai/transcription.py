@@ -11,8 +11,16 @@ from typing import List, Optional, Tuple, Callable, Dict, Any
 from pydantic import BaseModel, Field
 
 
+class TranscriptWord(BaseModel):
+    """Mot horodaté pour le sous-titrage dynamique et l'animation."""
+    word: str = Field(..., description="Texte du mot individuel")
+    start: float = Field(..., description="Début du mot en secondes")
+    end: float = Field(..., description="Fin du mot en secondes")
+    probability: Optional[float] = Field(None, description="Score de confiance du mot")
+
+
 class TranscriptSegment(BaseModel):
-    """Segment de transcription temporel structuré."""
+    """Segment de transcription temporel structuré avec horodatages par mot."""
     index: int = Field(..., description="Numéro d'ordre (1-based)")
     start_sec: float = Field(..., description="Début en secondes")
     end_sec: float = Field(..., description="Fin en secondes")
@@ -20,7 +28,7 @@ class TranscriptSegment(BaseModel):
     end_srt: str = Field(..., description="Horodatage SRT fin (HH:MM:SS,mmm)")
     text: str = Field(..., description="Texte transcrit")
     confidence: float = Field(0.0, description="Score de confiance moyen (0-1)")
-    words: Optional[List[Dict[str, Any]]] = None
+    words: Optional[List[TranscriptWord]] = Field(default_factory=list, description="Liste détaillée des mots horodatés")
 
 
 class TranscriptionResult(BaseModel):
@@ -44,6 +52,7 @@ class TranscriptionConfig(BaseModel):
     language: Optional[str] = Field(None, description="Code langue ISO (ex: 'fr', 'en') ou None pour détection automatique")
     beam_size: int = Field(5, description="Faisceau de recherche du décodeur")
     vad_filter: bool = Field(True, description="Active le filtre VAD pour ignorer les silences purs")
+    word_timestamps: bool = Field(True, description="Active les horodatages au niveau de chaque mot individuel")
 
 
 def seconds_to_srt_timestamp(seconds: float) -> str:
@@ -168,6 +177,7 @@ class TranscriptionEngine:
                 language=cfg.language,
                 beam_size=cfg.beam_size,
                 vad_filter=cfg.vad_filter,
+                word_timestamps=cfg.word_timestamps,
             )
 
             structured_segments: List[TranscriptSegment] = []
@@ -176,6 +186,16 @@ class TranscriptionEngine:
                 if clean_text:
                     st_srt = seconds_to_srt_timestamp(seg.start)
                     end_srt = seconds_to_srt_timestamp(seg.end)
+                    parsed_words: List[TranscriptWord] = []
+                    if hasattr(seg, "words") and seg.words:
+                        for w in seg.words:
+                            parsed_words.append(TranscriptWord(
+                                word=getattr(w, "word", "").strip(),
+                                start=round(getattr(w, "start", 0.0), 3),
+                                end=round(getattr(w, "end", 0.0), 3),
+                                probability=round(getattr(w, "probability", 1.0), 3) if getattr(w, "probability", None) is not None else None
+                            ))
+
                     structured_segments.append(TranscriptSegment(
                         index=idx,
                         start_sec=round(seg.start, 3),
@@ -183,7 +203,8 @@ class TranscriptionEngine:
                         start_srt=st_srt,
                         end_srt=end_srt,
                         text=clean_text,
-                        confidence=round(getattr(seg, "avg_logprob", 0.0), 3)
+                        confidence=round(getattr(seg, "avg_logprob", 0.0), 3),
+                        words=parsed_words
                     ))
                     if progress_callback:
                         progress_callback(idx, seg.end)
