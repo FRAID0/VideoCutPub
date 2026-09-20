@@ -146,6 +146,18 @@ class QueueManager:
                 job.progress_percent = 100.0
                 
                 if result.success:
+                    if job.social_transform:
+                        try:
+                            from core.video_transformer import VideoTransformer
+                            from social.aspect_ratio import TransformConfig
+                            cfg = TransformConfig(**job.social_transform)
+                            transformer = VideoTransformer(self.cutter.ffmpeg_manager, self.cutter.analyzer)
+                            for seg in result.segments:
+                                if seg.status == "completed":
+                                    transformer.transform(seg.output_path, result.output_dir, config=cfg)
+                        except Exception as e_trans:
+                            pass
+
                     job.status = JobStatus.COMPLETED
                     results.append(result)
                 else:

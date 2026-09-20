@@ -97,16 +97,27 @@ class MainWindow(QMainWindow):
         mode_sub_layout.addStretch()
         config_layout.addLayout(mode_sub_layout, 0, 3)
 
-        # Ligne 1 : Dossier de sortie
-        config_layout.addWidget(QLabel("Dossier de sortie :"), 1, 0)
+        # Ligne 1 : Format Réseaux Sociaux
+        config_layout.addWidget(QLabel("Format Réseaux Sociaux :"), 1, 0)
+        self.combo_social = QComboBox()
+        self.combo_social.addItems([
+            "Aucun (Ratio original)",
+            "Vertical 9:16 - Fond Flouté (Shorts / Reels / TikTok)",
+            "Vertical 9:16 - Recadrage Centré (Plein Écran)",
+            "Carré 1:1 (Instagram / Post)"
+        ])
+        config_layout.addWidget(self.combo_social, 1, 1, 1, 3)
+
+        # Ligne 2 : Dossier de sortie
+        config_layout.addWidget(QLabel("Dossier de sortie :"), 2, 0)
         self.entry_output_dir = QLineEdit()
         default_out = str((Path.cwd() / "output").resolve())
         self.entry_output_dir.setText(default_out)
-        config_layout.addWidget(self.entry_output_dir, 1, 1, 1, 2)
+        config_layout.addWidget(self.entry_output_dir, 2, 1, 1, 2)
 
         self.btn_browse_out = QPushButton("Parcourir...")
         self.btn_browse_out.clicked.connect(self._on_browse_output_clicked)
-        config_layout.addWidget(self.btn_browse_out, 1, 3)
+        config_layout.addWidget(self.btn_browse_out, 2, 3)
 
         main_layout.addWidget(config_box)
 
@@ -210,11 +221,21 @@ class MainWindow(QMainWindow):
         dur = self.combo_duration.currentText()
         mode = CutMode.FAST if self.radio_fast.isChecked() else CutMode.PRECISE
 
+        social_choice = self.combo_social.currentText()
+        social_cfg = None
+        if "Fond Flouté" in social_choice:
+            social_cfg = {"aspect_ratio": "9:16", "mode": "blurred_background", "target_width": 1080, "target_height": 1920}
+        elif "Recadrage Centré" in social_choice:
+            social_cfg = {"aspect_ratio": "9:16", "mode": "center_crop", "target_width": 1080, "target_height": 1920}
+        elif "Carré 1:1" in social_choice:
+            social_cfg = {"aspect_ratio": "1:1", "mode": "center_crop", "target_width": 1080, "target_height": 1080}
+
         for job in self.queue_manager.jobs:
             if job.status == JobStatus.PENDING:
                 job.output_base_dir = str(Path(out_dir).resolve())
                 job.segment_duration = dur
                 job.cut_mode = mode
+                job.social_transform = social_cfg
 
         # UI State : désactiver boutons de configuration pendant le run
         self._set_controls_enabled(False)
@@ -269,6 +290,7 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(enabled)
         self.btn_cancel.setEnabled(not enabled)
         self.combo_duration.setEnabled(enabled)
+        self.combo_social.setEnabled(enabled)
         self.radio_fast.setEnabled(enabled)
         self.radio_precise.setEnabled(enabled)
         self.entry_output_dir.setEnabled(enabled)

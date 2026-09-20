@@ -74,6 +74,7 @@ class VideoJob(BaseModel):
     progress_percent: float = 0.0
     error_message: Optional[str] = None
     result: Optional[CutResult] = None
+    social_transform: Optional[dict] = None
 
 
 class QueueProgress(BaseModel):
