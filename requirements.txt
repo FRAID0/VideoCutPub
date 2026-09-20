@@ -1,0 +1,11 @@
+# Interface Graphique
+PySide6>=6.6.0
+
+# Moteur Vidéo FFmpeg
+ffmpeg-python>=0.2.0
+
+# Structuration des Données & Configuration
+pydantic>=2.0.0
+
+# Tests Unitaires & Intégration
+pytest>=7.0.0
