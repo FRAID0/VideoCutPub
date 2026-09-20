@@ -186,6 +186,11 @@ class MainWindow(QMainWindow):
         self.btn_start.setFixedHeight(40)
         self.btn_start.clicked.connect(self._on_start_clicked)
 
+        self.btn_publish_hub = QPushButton("🚀 Studio Publication")
+        self.btn_publish_hub.setFixedHeight(40)
+        self.btn_publish_hub.setToolTip("Ouvrir le centre de publication sociale pour diffuser un Social Pack.")
+        self.btn_publish_hub.clicked.connect(self._on_publish_hub_clicked)
+
         self.btn_open_output = QPushButton("📂 Dossier Sortie")
         self.btn_open_output.setFixedHeight(40)
         self.btn_open_output.setToolTip("Ouvrir le dossier des livrables et des Social Packs dans l'explorateur.")
@@ -198,6 +203,7 @@ class MainWindow(QMainWindow):
         self.btn_cancel.clicked.connect(self._on_cancel_clicked)
 
         action_bar.addWidget(self.btn_start, stretch=3)
+        action_bar.addWidget(self.btn_publish_hub, stretch=2)
         action_bar.addWidget(self.btn_open_output, stretch=1)
         action_bar.addWidget(self.btn_cancel, stretch=1)
         main_layout.addLayout(action_bar)
@@ -365,6 +371,11 @@ class MainWindow(QMainWindow):
         dlg.video_downloaded_signal.connect(self._on_video_downloaded)
         dlg.exec()
 
+    def _on_publish_hub_clicked(self) -> None:
+        from app.widgets.publish_dialog import PublishDialog
+        dlg = PublishDialog(parent=self)
+        dlg.exec()
+
     @Slot(str)
     def _on_video_downloaded(self, file_path: str) -> None:
         out_dir = self.entry_output_dir.text()
@@ -386,6 +397,7 @@ class MainWindow(QMainWindow):
         self.btn_import_url.setEnabled(enabled)
         self.btn_clear_queue.setEnabled(enabled)
         self.btn_start.setEnabled(enabled)
+        self.btn_publish_hub.setEnabled(enabled)
         self.btn_cancel.setEnabled(not enabled)
         self.combo_duration.setEnabled(enabled)
         self.combo_social.setEnabled(enabled)

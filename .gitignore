@@ -52,6 +52,17 @@ video/
 *.log
 logs/
 
+# Secrets & Credentials (NEVER COMMIT)
+.credentials/
+credentials/
+tokens/
+*.token
+*.env
+.env
+.env.*
+client_secret*.json
+client_secrets*.json
+
 # Antigravity / Agent Scratch
 .system_generated/
 scratch/

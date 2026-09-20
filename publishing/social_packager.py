@@ -108,10 +108,12 @@ class SocialPackager:
         srt_path: Optional[str] = None,
         ass_path: Optional[str] = None,
         metadata: Optional[SocialMetadata] = None,
-        copy_files: bool = True
+        copy_files: bool = True,
+        source_video: Optional[str] = None
     ) -> SegmentPack:
         """
         Crée le dossier autonome 'Segment XX/' et y standardise tous les livrables.
+        Génère un manifeste unique pack_metadata.json servant de source de vérité.
         """
         seg_folder_name = f"Segment {segment_index:02d}"
         pack_dir = Path(output_base_dir) / "social_pack" / seg_folder_name
@@ -164,7 +166,6 @@ class SocialPackager:
                 pack.ass_file = str(ass_dest.resolve())
 
             # 5. Miniature HD (thumbnail.jpg)
-            # Priorité à la vidéo sous-titrée si disponible, sinon vidéo principale
             target_thumb_vid = pack.subtitled_video_file or pack.video_file
             if target_thumb_vid and Path(target_thumb_vid).is_file():
                 thumb_dest = pack_dir / "thumbnail.jpg"
@@ -180,14 +181,43 @@ class SocialPackager:
                 self.metadata_generator.export_post_txt(metadata, str(txt_dest))
                 pack.post_content_file = str(txt_dest.resolve())
 
-            # 7. Fiche technique du pack (pack_metadata.json)
+            # 7. Fiche technique et manifeste unique du pack (pack_metadata.json)
+            formats_dict = {
+                "original": str(Path(video_path).resolve()) if video_path else None,
+                "vertical_9x16": "video.mp4" if (pack.width > 0 and pack.height / pack.width > 1.3) else None,
+                "square_1x1": "video.mp4" if (pack.width > 0 and pack.height == pack.width) else None,
+                "standard": "video.mp4"
+            }
+
             pack_meta_dict = {
+                "source_video": source_video or video_path,
+                "segment": segment_index,
                 "segment_index": segment_index,
                 "created_at": datetime.now().isoformat(),
                 "duration_seconds": pack.duration_seconds,
                 "width": pack.width,
                 "height": pack.height,
                 "has_subtitles": pack.has_subtitles,
+                "formats": formats_dict,
+                "subtitles": {
+                    "srt": "subtitles.srt" if pack.srt_file else None,
+                    "ass": "subtitles.ass" if pack.ass_file else None,
+                    "burned_in": "video_subtitled.mp4" if pack.subtitled_video_file else None,
+                },
+                "metadata": {
+                    "title": metadata.title if metadata else f"Segment {segment_index}",
+                    "hooks": metadata.hooks if metadata else [],
+                    "description": metadata.description if metadata else "",
+                    "hashtags": metadata.hashtags if metadata else [],
+                    "detected_topic": metadata.detected_topic if metadata else "Général",
+                    "keywords": metadata.keywords if metadata else []
+                } if metadata else None,
+                "thumbnail": "thumbnail.jpg" if pack.thumbnail_file else None,
+                "publishing": {
+                    "youtube": "ready",
+                    "tiktok": "ready",
+                    "manual": "ready"
+                },
                 "files": {
                     "video": "video.mp4" if pack.video_file else None,
                     "video_subtitled": "video_subtitled.mp4" if pack.subtitled_video_file else None,
@@ -195,8 +225,7 @@ class SocialPackager:
                     "subtitles_ass": "subtitles.ass" if pack.ass_file else None,
                     "thumbnail": "thumbnail.jpg" if pack.thumbnail_file else None,
                     "post_content": "post_content.txt" if pack.post_content_file else None,
-                },
-                "metadata": metadata.model_dump() if metadata else None
+                }
             }
 
             meta_dest = pack_dir / "pack_metadata.json"
@@ -243,7 +272,8 @@ class SocialPackager:
                     subtitled_video_path=sub_p,
                     srt_path=srt_p,
                     ass_path=ass_p,
-                    metadata=ai_meta
+                    metadata=ai_meta,
+                    source_video=source_file
                 )
                 summary.packs.append(pack)
 
