@@ -139,11 +139,16 @@ class MainWindow(QMainWindow):
         self.chk_metadata.setToolTip("Génère automatiquement 3 accroches virales, description SEO et hashtags.")
         self.chk_metadata.toggled.connect(lambda checked: self.chk_transcribe.setChecked(True) if checked else None)
 
+        self.chk_social_pack = QCheckBox("📦 Social Pack")
+        self.chk_social_pack.setChecked(True)
+        self.chk_social_pack.setToolTip("Assemble un pack autonome par segment (vidéos, sous-titres, miniature HD, post_content.txt).")
+
         sub_layout.addWidget(self.chk_transcribe)
         sub_layout.addWidget(self.combo_whisper_model)
         sub_layout.addWidget(self.chk_burn)
         sub_layout.addWidget(self.combo_style)
         sub_layout.addWidget(self.chk_metadata)
+        sub_layout.addWidget(self.chk_social_pack)
         config_layout.addLayout(sub_layout, 2, 1, 1, 3)
 
         # Ligne 3 : Dossier de sortie
@@ -174,12 +179,17 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(progress_box)
 
-        # 5. Boutons de Contrôle Principal (Lancer / Annuler)
+        # 5. Boutons de Contrôle Principal (Lancer / Ouvrir / Annuler)
         action_bar = QHBoxLayout()
         self.btn_start = QPushButton("▶ LANCER LE TRAITEMENT")
         self.btn_start.setObjectName("btn_start")
         self.btn_start.setFixedHeight(40)
         self.btn_start.clicked.connect(self._on_start_clicked)
+
+        self.btn_open_output = QPushButton("📂 Dossier Sortie")
+        self.btn_open_output.setFixedHeight(40)
+        self.btn_open_output.setToolTip("Ouvrir le dossier des livrables et des Social Packs dans l'explorateur.")
+        self.btn_open_output.clicked.connect(self._on_open_output_clicked)
 
         self.btn_cancel = QPushButton("⏹ ANNULER")
         self.btn_cancel.setObjectName("btn_cancel")
@@ -188,6 +198,7 @@ class MainWindow(QMainWindow):
         self.btn_cancel.clicked.connect(self._on_cancel_clicked)
 
         action_bar.addWidget(self.btn_start, stretch=3)
+        action_bar.addWidget(self.btn_open_output, stretch=1)
         action_bar.addWidget(self.btn_cancel, stretch=1)
         main_layout.addLayout(action_bar)
 
@@ -279,6 +290,7 @@ class MainWindow(QMainWindow):
         transcribe_enabled = self.chk_transcribe.isChecked()
         burn_enabled = self.chk_burn.isChecked()
         metadata_enabled = self.chk_metadata.isChecked()
+        package_social_enabled = self.chk_social_pack.isChecked()
         whisper_model = self.combo_whisper_model.currentText()
 
         for job in self.queue_manager.jobs:
@@ -292,6 +304,7 @@ class MainWindow(QMainWindow):
                 job.burn_subtitles = burn_enabled
                 job.subtitle_preset = subtitle_preset
                 job.generate_metadata = metadata_enabled
+                job.package_social = package_social_enabled
 
         # UI State : désactiver boutons de configuration pendant le run
         self._set_controls_enabled(False)
@@ -308,6 +321,16 @@ class MainWindow(QMainWindow):
         if self.queue_manager:
             self.queue_manager.cancel()
             self.lbl_status.setText("Annulation demandée...")
+
+    def _on_open_output_clicked(self) -> None:
+        out_p = Path(self.entry_output_dir.text()).resolve()
+        out_p.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(str(out_p))
+        except Exception:
+            from PySide6.QtGui import QDesktopServices
+            from PySide6.QtCore import QUrl
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(out_p)))
 
     @Slot(QueueProgress)
     def _on_worker_progress(self, progress: QueueProgress) -> None:
@@ -371,6 +394,7 @@ class MainWindow(QMainWindow):
         self.chk_burn.setEnabled(enabled)
         self.combo_style.setEnabled(enabled)
         self.chk_metadata.setEnabled(enabled)
+        self.chk_social_pack.setEnabled(enabled)
         self.radio_fast.setEnabled(enabled)
         self.radio_precise.setEnabled(enabled)
         self.entry_output_dir.setEnabled(enabled)

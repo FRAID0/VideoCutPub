@@ -149,11 +149,24 @@ class QueueManager:
                 self._notify_progress(idx, job)
                 
                 if result.success:
-                    # 1. Transformation Format Réseaux Sociaux (optionnel)
-                    transformed_files = []
                     valid_segs = [s for s in result.segments if s.status == "completed"]
                     total_segs = max(1, len(valid_segs))
 
+                    # Préparation des livrables pour le Social Pack
+                    pack_info = {
+                        seg.segment_index: {
+                            "segment_index": seg.segment_index,
+                            "video_path": str(seg.output_path),
+                            "subtitled_video_path": None,
+                            "srt_path": None,
+                            "ass_path": None,
+                            "metadata": None,
+                        }
+                        for seg in valid_segs
+                    }
+
+                    # 1. Transformation Format Réseaux Sociaux (optionnel)
+                    transformed_files = []
                     if job.social_transform:
                         try:
                             from core.video_transformer import VideoTransformer
@@ -164,6 +177,8 @@ class QueueManager:
                                 t_res = transformer.transform(seg.output_path, result.output_dir, config=cfg)
                                 if t_res.success:
                                     transformed_files.append((seg, t_res.output_path))
+                                    if seg.segment_index in pack_info:
+                                        pack_info[seg.segment_index]["video_path"] = t_res.output_path
                                 job.progress_percent = 20.0 + (35.0 * (s_i / total_segs))
                                 self._notify_progress(idx, job)
                         except Exception as e_trans:
@@ -183,7 +198,12 @@ class QueueManager:
                             for t_i, (seg, video_target) in enumerate(targets, start=1):
                                 video_p = Path(video_target)
                                 trans_res = trans_engine.transcribe(str(video_p), output_dir=str(video_p.parent))
+                                if trans_res.success and trans_res.srt_file_path:
+                                    if seg.segment_index in pack_info:
+                                        pack_info[seg.segment_index]["srt_path"] = trans_res.srt_file_path
+
                                 job.progress_percent = 55.0 + (25.0 * (t_i / n_targets))
+
                                 # 3. Génération des Métadonnées IA (post_content.txt & metadata_ai.json)
                                 if getattr(job, "generate_metadata", True) and trans_res.success and trans_res.segments:
                                     try:
@@ -194,6 +214,8 @@ class QueueManager:
                                         json_path = video_p.parent / f"{video_p.stem}_metadata_ai.json"
                                         meta_gen.export_post_txt(ai_meta, str(txt_path))
                                         meta_gen.export_json(ai_meta, str(json_path))
+                                        if seg.segment_index in pack_info:
+                                            pack_info[seg.segment_index]["metadata"] = ai_meta
                                     except Exception as e_meta:
                                         pass
 
@@ -222,14 +244,32 @@ class QueueManager:
                                             subtitle_path=str(ass_file),
                                             output_dir=str(video_p.parent / "rendered")
                                         )
-                                        renderer.burn(burn_job)
+                                        burn_res = renderer.burn(burn_job)
+                                        if burn_res.success:
+                                            if seg.segment_index in pack_info:
+                                                pack_info[seg.segment_index]["ass_path"] = str(ass_file)
+                                                pack_info[seg.segment_index]["subtitled_video_path"] = burn_res.output_video
                                     except Exception as e_burn:
                                         pass
 
-                                job.progress_percent = 80.0 + (20.0 * (t_i / n_targets))
+                                job.progress_percent = 80.0 + (15.0 * (t_i / n_targets))
                                 self._notify_progress(idx, job)
 
                         except Exception as e_transcribe:
+                            pass
+
+                    # 5. Création du Social Pack standardisé (optionnel, activé par défaut)
+                    if getattr(job, "package_social", True) and pack_info:
+                        try:
+                            from publishing.social_packager import SocialPackager
+                            packager = SocialPackager(self.cutter.ffmpeg_manager, self.cutter.analyzer)
+                            summary = packager.package_job_assets(
+                                source_file=job.source_path,
+                                output_dir=result.output_dir,
+                                segments_data=list(pack_info.values())
+                            )
+                            result.pack_summary_path = summary.summary_json_path
+                        except Exception as e_pack:
                             pass
 
                     job.progress_percent = 100.0

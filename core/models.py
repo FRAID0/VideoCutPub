@@ -61,6 +61,7 @@ class CutResult(BaseModel):
     success: bool
     error_message: Optional[str] = None
     total_time_seconds: float = 0.0
+    pack_summary_path: Optional[str] = None
 
 
 class VideoJob(BaseModel):
@@ -80,6 +81,7 @@ class VideoJob(BaseModel):
     burn_subtitles: bool = False
     subtitle_preset: str = "tiktok_high_contrast"
     generate_metadata: bool = True
+    package_social: bool = True
 
 
 class QueueProgress(BaseModel):
